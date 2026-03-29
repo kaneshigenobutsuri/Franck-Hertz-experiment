@@ -1,0 +1,790 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>フランク・ヘルツの実験</title>
+<style>
+  :root {
+    --primary: #4a90e2;
+    --primary-dark: #357abd;
+    --bg-color: #f5f7fa;
+    --panel-bg: #ffffff;
+    --text-color: #333333;
+    --text-muted: #666666;
+    --border-color: #e2e8f0;
+  }
+
+  body {
+    font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', Meiryo, sans-serif;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    margin: 0;
+    padding: 10px 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .main-wrapper {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    max-width: 1300px;
+    gap: 15px; /* 全体の隙間を少し詰める */
+  }
+
+  .container {
+    display: flex;
+    flex-direction: row;
+    gap: 20px;
+    width: 100%;
+    justify-content: center;
+  }
+
+  .left-pane {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    flex: 2.5; /* アニメーション側をより広く */
+    min-width: 0;
+  }
+
+  .right-pane {
+    background: var(--panel-bg);
+    padding: 20px;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    flex: 1;
+    min-width: 300px;
+    max-width: 380px;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    height: fit-content;
+  }
+
+  canvas {
+    background: var(--panel-bg);
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    touch-action: none;
+    width: 100%;
+    display: block;
+  }
+
+  #simCanvas {
+    height: 450px; /* アニメーションウィンドウを大きく */
+  }
+
+  #graphCanvas {
+    height: 250px; /* グラフの高さを少し抑えてバランス調整 */
+  }
+
+  h1 {
+    font-size: 1.4rem;
+    margin: 0;
+    padding-bottom: 10px;
+    border-bottom: 3px solid var(--primary);
+    color: #2c3e50;
+  }
+
+  /* --- 電源装置UI --- */
+  .power-supply {
+    background: #2b3035;
+    padding: 15px;
+    border-radius: 12px;
+    box-shadow: inset 0 2px 5px rgba(0,0,0,0.5), 0 4px 10px rgba(0,0,0,0.2);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    border: 2px solid #1a1d20;
+    user-select: none;
+  }
+
+  .ps-title {
+    color: #a0aec0;
+    font-size: 0.8rem;
+    font-weight: bold;
+    letter-spacing: 1.5px;
+  }
+
+  .value-display {
+    font-size: 2rem;
+    color: #4ade80;
+    background: #111;
+    padding: 5px 12px;
+    border-radius: 6px;
+    font-family: 'Courier New', Courier, monospace;
+    box-shadow: inset 0 0 8px rgba(0,0,0,0.8);
+    width: 110px;
+    text-align: right;
+    border: 1px solid #333;
+    text-shadow: 0 0 5px rgba(74, 222, 128, 0.5);
+    white-space: pre;
+  }
+
+  .knob-container {
+    position: relative;
+    width: 120px;
+    height: 120px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+
+  .knob {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: linear-gradient(145deg, #4a4a4a, #2b2b2b);
+    box-shadow: 0 6px 12px rgba(0,0,0,0.6), inset 0 2px 4px rgba(255,255,255,0.2);
+    position: relative;
+    cursor: grab;
+    transform: rotate(-135deg);
+    border: 2px solid #111;
+    transform-origin: center;
+    touch-action: none;
+  }
+
+  .knob-indicator {
+    position: absolute;
+    top: 5px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 3px;
+    height: 18px;
+    background: #e53e3e;
+    border-radius: 2px;
+  }
+
+  .knob-labels {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    top: 0;
+    left: 0;
+    pointer-events: none;
+  }
+
+  .knob-labels span {
+    position: absolute;
+    color: #a0aec0;
+    font-weight: bold;
+    font-size: 0.85rem;
+  }
+  .knob-labels span:nth-child(1) { bottom: 5px; left: 5px; }
+  .knob-labels span:nth-child(2) { bottom: 5px; right: 5px; }
+
+  button {
+    width: 100%;
+    padding: 12px;
+    background: var(--primary);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  button:hover { background: var(--primary-dark); }
+
+  .toggle-label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    font-size: 0.9rem;
+  }
+
+  .explanation {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    line-height: 1.5;
+    background: #ebf8ff;
+    padding: 12px 16px;
+    border-radius: 8px;
+    border-left: 4px solid var(--primary);
+    width: 100%;
+    box-sizing: border-box;
+    margin-top: 5px;
+  }
+
+  @media (max-width: 950px) {
+    .container { flex-direction: column; }
+    .right-pane { max-width: 100%; }
+    #simCanvas { height: 350px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="main-wrapper">
+  <div class="container">
+    <div class="left-pane">
+      <!-- 高さを増やしたアニメーションキャンバス -->
+      <canvas id="simCanvas" width="850" height="450" aria-label="実験装置の概念図"></canvas>
+      <!-- 高さを少し抑えたグラフキャンバス -->
+      <canvas id="graphCanvas" width="850" height="250" aria-label="加速電圧と電流の関係グラフ"></canvas>
+    </div>
+
+    <div class="right-pane">
+      <h1>フランク・ヘルツの実験</h1>
+      
+      <div class="power-supply">
+        <div class="ps-title">直流可変電源 (加速電圧)</div>
+        <div class="value-display" id="voltageDisplay"> 0.0 V</div>
+        
+        <div class="knob-container">
+          <div class="knob" id="voltageKnob">
+            <div class="knob-indicator"></div>
+          </div>
+          <div class="knob-labels">
+            <span>0</span>
+            <span>15</span>
+          </div>
+        </div>
+      </div>
+
+      <button id="autoPlayBtn">▶ オートプレイ開始</button>
+
+      <div class="control-group">
+        <label class="toggle-label">
+          <input type="checkbox" id="showPhotonBtn" checked>
+          紫外線の放射を表示する
+        </label>
+      </div>
+
+      <div class="explanation">
+        <strong>【実験の概要】</strong><br>
+        陰極から放出された電子が電圧 V で加速され、水銀原子の励起エネルギー（<strong>約4.9 eV</strong>）に達すると非弾性衝突を起こしエネルギーを失います。エネルギー不足の電子は陽極前の逆電圧を越えられず、電流が減少します（谷）。励起された原子は戻る際に<strong>紫外線</strong>を放射します。
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const simCanvas = document.getElementById('simCanvas');
+  const simCtx = simCanvas.getContext('2d');
+  const graphCanvas = document.getElementById('graphCanvas');
+  const graphCtx = graphCanvas.getContext('2d');
+
+  let voltageV = 0.0;
+  let isAutoPlaying = false;
+  let showPhotons = true;
+  let frameCount = 0;
+
+  const EXCITATION_ENERGY = 4.9;
+  const REVERSE_VOLTAGE = 0.5;
+  
+  const CATHODE_X = 140;
+  const GRID_X = 610;    // Canvas幅に合わせて広げる
+  const ANODE_X = 680;
+  const TUBE_Y_TOP = 80; // 高くなった分少し位置を下げる
+  const TUBE_Y_BOTTOM = 340;
+  const TUBE_HEIGHT = TUBE_Y_BOTTOM - TUBE_Y_TOP;
+
+  const atoms = [];
+  const rows = 4;
+  const cols = 5; // 20個の原子を満遍なく配置
+  const xStart = CATHODE_X + 80;
+  const xEnd = GRID_X - 60;
+  const yStart = TUBE_Y_TOP + 50;
+  const yEnd = TUBE_Y_BOTTOM - 50;
+
+  for(let r = 0; r < rows; r++) {
+    for(let c = 0; c < cols; c++) {
+      let ax = xStart + (xEnd - xStart) * c / (cols - 1);
+      let ay = yStart + (yEnd - yStart) * r / (rows - 1);
+      // 自然に見せるため少しランダムにずらす
+      ax += (Math.random() - 0.5) * 30;
+      ay += (Math.random() - 0.5) * 30;
+      atoms.push({
+        x: ax,
+        y: ay,
+        radius: 8 + Math.random() * 2,
+        flashTimer: 0
+      });
+    }
+  }
+
+  let electrons = [];
+  let photons = [];
+
+  const currentData = [
+    [0, 0.0], [0.5, 0.05], [1.0, 0.15], [2.0, 0.4], [3.0, 0.9], [4.0, 1.8], [4.5, 2.5], [4.7, 2.8],
+    [4.9, 3.0], [4.95, 1.8], [5.0, 1.0], [5.1, 0.8], [5.3, 0.75],
+    [6.0, 1.2], [7.0, 2.0], [8.0, 3.4], [9.0, 5.0], [9.5, 5.6], [9.7, 5.9],
+    [9.8, 6.0], [9.85, 3.8], [9.9, 2.2], [10.0, 1.5], [10.2, 1.3],
+    [11.0, 2.4], [12.0, 3.8], [13.0, 5.8], [14.0, 7.8], [14.5, 8.7], [14.6, 8.9],
+    [14.7, 9.0], [14.75, 6.0], [14.8, 3.8], [14.9, 2.8], [15.0, 3.0]
+  ];
+
+  function getTheoreticalCurrent(V) {
+    if (V <= currentData[0][0]) return currentData[0][1];
+    if (V >= currentData[currentData.length - 1][0]) return currentData[currentData.length - 1][1];
+    for (let i = 0; i < currentData.length - 1; i++) {
+      if (V >= currentData[i][0] && V <= currentData[i+1][0]) {
+        let t = (V - currentData[i][0]) / (currentData[i+1][0] - currentData[i][0]);
+        return currentData[i][1] * (1 - t) + currentData[i+1][1] * t;
+      }
+    }
+    return 0;
+  }
+
+  class Electron {
+    constructor() {
+      this.x = CATHODE_X + 5;
+      // どこかの原子のy座標付近から出発させることで、実際に衝突しやすくする
+      if (atoms.length > 0) {
+        let targetAtom = atoms[Math.floor(Math.random() * atoms.length)];
+        this.y = targetAtom.y + (Math.random() - 0.5) * 20;
+      } else {
+        this.y = TUBE_Y_TOP + 30 + Math.random() * (TUBE_HEIGHT - 60);
+      }
+      this.collisions = 0; 
+      this.active = true;
+      this.energy = 0;     
+      this.state = 'ACCELERATING'; 
+      this.caughtTimer = 0;
+      this.vx = 0;
+    }
+
+    update(V) {
+      if (!this.active) return;
+      if (this.state === 'CAUGHT') {
+        this.caughtTimer--;
+        if (this.caughtTimer <= 0) this.active = false;
+        return;
+      }
+      if (this.state === 'ACCELERATING') {
+        let suppliedEnergy = V * (this.x - CATHODE_X) / (GRID_X - CATHODE_X);
+        let currentEnergy = suppliedEnergy - (EXCITATION_ENERGY * this.collisions);
+        this.energy = currentEnergy;
+        let speed = 1.5 + Math.sqrt(Math.max(0, currentEnergy)) * 1.5;
+        if (speed > 8) speed = 8; 
+        this.x += speed;
+
+        if (currentEnergy >= EXCITATION_ENERGY) {
+          // 原子との物理的な衝突判定
+          for (let i = 0; i < atoms.length; i++) {
+            let a = atoms[i];
+            // x方向はすり抜け防止で広め、y方向は近くを通った時
+            if (Math.abs(this.x - a.x) < 12 && Math.abs(this.y - a.y) < 15) {
+              this.collisions++;
+              // 衝突してもY方向の位置は変えず、そのまま直進する
+              if (showPhotons) {
+                createPhoton(a.x, a.y);
+                a.flashTimer = 25; // 衝突した原子を直接光らせる
+              }
+              break; // 1回の移動で1個の原子とだけ衝突
+            }
+          }
+        }
+        if (this.x >= GRID_X) {
+          if (Math.random() < 0.15) {
+            this.x = GRID_X;
+            this.state = 'CAUGHT';
+            this.caughtTimer = 25;
+          } else {
+            let energyAtGrid = V - (EXCITATION_ENERGY * this.collisions);
+            if (energyAtGrid < REVERSE_VOLTAGE) {
+              this.state = 'RETURNING';
+              // GP間でゆっくりUターンさせるため、初速を調整
+              this.vx = 1.0 + (Math.max(0, energyAtGrid) / REVERSE_VOLTAGE) * 1.5; 
+            } else {
+              this.state = 'TO_ANODE';
+            }
+          }
+        }
+      } else if (this.state === 'RETURNING') {
+        this.vx -= 0.05; // 減速を緩やかにしてGP間に長く滞在させる
+        this.x += this.vx;
+        // 縦方向には揺れないようにするため、Y座標のランダム変動を削除
+        
+        // 陽極に届いてしまった場合は突き抜け防止で消去
+        if (this.x >= ANODE_X - 5) {
+           this.active = false;
+        } else if (this.x <= GRID_X) {
+          this.x = GRID_X;
+          this.state = 'CAUGHT';
+          this.caughtTimer = 25; // Gに捕まった状態を長く表示
+        }
+      } else if (this.state === 'TO_ANODE') {
+        // 逆電場の中を進むので少し遅くする
+        this.x += 2.5;
+        if (this.x >= ANODE_X) this.active = false;
+      }
+    }
+
+    draw(ctx) {
+      let alpha = 1.0;
+      let r = 30, g = 100, b = 255;
+      if (this.state === 'CAUGHT') {
+        alpha = this.caughtTimer / 15;
+        r = 237; g = 137; b = 54;
+      } else if (this.state === 'RETURNING') {
+        r = 100; g = 140; b = 200; 
+      }
+      ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${alpha})`;
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, 5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  function createPhoton(x, y) {
+    photons.push({
+      x: x, y: y, life: 1.0, maxLife: 1.0,
+      update: function() { this.life -= 0.03; },
+      draw: function(ctx) {
+        let alpha = this.life / this.maxLife;
+        let progress = 1.0 - alpha;
+        let distance = progress * 40; 
+        let arrowLen = 12; 
+        ctx.strokeStyle = `rgba(159, 122, 234, ${alpha})`; 
+        ctx.lineWidth = 2;
+        for (let i = 0; i < 6; i++) {
+          let angle = (i * Math.PI * 2) / 6;
+          let startX = this.x + Math.cos(angle) * distance;
+          let startY = this.y + Math.sin(angle) * distance;
+          let endX = this.x + Math.cos(angle) * (distance + arrowLen);
+          let endY = this.y + Math.sin(angle) * (distance + arrowLen);
+          drawArrow(ctx, startX, startY, endX, endY);
+        }
+      }
+    });
+  }
+
+  function update() {
+    frameCount++;
+    if (isAutoPlaying) {
+      voltageV += 0.02; 
+      // 15Vに達したらオートプレイを停止して15Vで固定する
+      if (voltageV >= 15) {
+        voltageV = 15;
+        isAutoPlaying = false;
+        document.getElementById('autoPlayBtn').innerText = '▶ オートプレイ開始';
+      }
+      updateUI();
+    }
+    if (frameCount % 5 === 0) { electrons.push(new Electron()); }
+    electrons.forEach(e => e.update(voltageV));
+    electrons = electrons.filter(e => e.active);
+    photons.forEach(p => p.update());
+    photons = photons.filter(p => p.life > 0);
+    atoms.forEach(a => { if (a.flashTimer > 0) a.flashTimer--; });
+
+    drawSim();
+    drawGraph();
+    requestAnimationFrame(update);
+  }
+
+  function drawSim() {
+    simCtx.clearRect(0, 0, simCanvas.width, simCanvas.height);
+    
+    simCtx.fillStyle = 'rgba(237, 242, 247, 0.6)';
+    simCtx.beginPath();
+    simCtx.roundRect(CATHODE_X - 40, TUBE_Y_TOP, ANODE_X - CATHODE_X + 80, TUBE_HEIGHT, 40);
+    simCtx.fill();
+    simCtx.strokeStyle = '#a0aec0';
+    simCtx.lineWidth = 3;
+    simCtx.stroke();
+    
+    simCtx.fillStyle = '#718096';
+    simCtx.font = 'bold 24px sans-serif';
+    simCtx.textAlign = 'center';
+    simCtx.fillText('水銀蒸気 (Hg)', (CATHODE_X + GRID_X)/2, TUBE_Y_TOP - 25);
+
+    const fieldStartY = TUBE_Y_TOP + 40;
+    const fieldEndY = TUBE_Y_BOTTOM - 40;
+
+    // --- 加速電場 (C-G間) ---
+    if (voltageV > 0.05) {
+      simCtx.lineWidth = 3;
+      
+      let yCenter = (fieldStartY + fieldEndY) / 2;
+      let step = (fieldEndY - fieldStartY) / 4;
+      // 中央から外側へ向かって順番に表示するための固定Y座標配列
+      const arrowYPositions = [
+        yCenter,               // 1本目: 中央
+        yCenter - step,        // 2本目: 中央上
+        yCenter + step,        // 3本目: 中央下
+        fieldStartY,           // 4本目: 一番上
+        fieldEndY              // 5本目: 一番下
+      ];
+
+      for (let i = 0; i < 5; i++) {
+        let vStart = i * 3; // 0V, 3V, 6V, 9V, 12V で順番に現れ始める
+        if (voltageV > vStart) {
+          // 電圧が開始電圧を超えたら、次の3Vかけて透明度を徐々に上げる（ふわっと現れる）
+          let alpha = (voltageV - vStart) / 3 * 0.8;
+          
+          // 最初の1本目はツマミを少しでも回したらうっすら見えるように下駄を履かせる
+          if (i === 0) {
+            alpha = 0.2 + (voltageV / 3) * 0.6;
+          }
+          
+          if (alpha > 0.8) alpha = 0.8; // 透明度の最大値を制限
+
+          simCtx.strokeStyle = `rgba(49, 130, 206, ${alpha})`;
+          simCtx.fillStyle = `rgba(49, 130, 206, ${alpha})`;
+          drawArrow(simCtx, GRID_X - 20, arrowYPositions[i], CATHODE_X + 40, arrowYPositions[i]);
+        }
+      }
+
+      // 「電場」の文字の透明度も連動させる
+      let textAlpha = Math.min(0.9, 0.3 + voltageV / 5);
+      simCtx.fillStyle = `rgba(49, 130, 206, ${textAlpha})`;
+      simCtx.font = '14px sans-serif';
+      simCtx.fillText('電場', (CATHODE_X + GRID_X) / 2, fieldStartY - 20);
+    }
+
+    // --- 逆電場 (G-A間) ---
+    simCtx.strokeStyle = 'rgba(229, 62, 62, 0.6)';
+    simCtx.lineWidth = 3;
+    // 逆電圧は一定なので本数も固定で描画
+    let revLines = 5;
+    for (let i = 0; i < revLines; i++) {
+      let y = fieldStartY + i * ((fieldEndY - fieldStartY) / (revLines - 1));
+      drawArrow(simCtx, GRID_X + 15, y, ANODE_X - 15, y); 
+    }
+    simCtx.fillStyle = 'rgba(229, 62, 62, 0.9)';
+    simCtx.font = '14px sans-serif';
+    simCtx.fillText('電場', (GRID_X + ANODE_X) / 2, fieldStartY - 20);
+
+    const Y1 = TUBE_Y_BOTTOM + 50;
+    const vBatX = (CATHODE_X + GRID_X) / 2;
+    const P_RIGHT_X = ANODE_X + 80;
+    const revBatX = (GRID_X + P_RIGHT_X) / 2;
+
+    simCtx.strokeStyle = '#2d3748';
+    simCtx.lineWidth = 2;
+    simCtx.beginPath();
+    simCtx.moveTo(CATHODE_X, TUBE_Y_BOTTOM - 10);
+    simCtx.lineTo(CATHODE_X, Y1);
+    simCtx.lineTo(vBatX - 10, Y1);
+    simCtx.moveTo(vBatX + 10, Y1);
+    simCtx.lineTo(GRID_X, Y1);
+    simCtx.lineTo(GRID_X, TUBE_Y_BOTTOM - 10);
+    simCtx.stroke();
+    
+    simCtx.beginPath();
+    simCtx.moveTo(ANODE_X, TUBE_Y_BOTTOM - 20);
+    simCtx.lineTo(P_RIGHT_X, TUBE_Y_BOTTOM - 20);
+    simCtx.lineTo(P_RIGHT_X, Y1);
+    simCtx.lineTo(revBatX + 10, Y1);
+    simCtx.moveTo(revBatX - 10, Y1);
+    simCtx.lineTo(GRID_X, Y1);
+    simCtx.stroke();
+
+    function drawBattery(ctx, x, y, isVariable, leftIsNegative) {
+      ctx.save();
+      ctx.strokeStyle = '#2d3748';
+      ctx.beginPath();
+      if (leftIsNegative) {
+        ctx.lineWidth = 4; ctx.moveTo(x - 5, y - 10); ctx.lineTo(x - 5, y + 10); ctx.stroke();
+        ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x + 5, y - 18); ctx.lineTo(x + 5, y + 18); ctx.stroke();
+      } else {
+        ctx.lineWidth = 2; ctx.moveTo(x - 5, y - 18); ctx.lineTo(x - 5, y + 18); ctx.stroke();
+        ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(x + 5, y - 10); ctx.lineTo(x + 5, y + 10); ctx.stroke();
+      }
+      if (isVariable) { ctx.lineWidth = 2; drawArrow(ctx, x - 18, y + 18, x + 18, y - 18); }
+      ctx.restore();
+    }
+
+    drawBattery(simCtx, vBatX, Y1, true, true);
+    simCtx.fillStyle = '#e53e3e';
+    simCtx.font = 'bold 18px monospace';
+    simCtx.fillText(`V = ${voltageV.toFixed(1)} V`, vBatX, Y1 + 35);
+    drawBattery(simCtx, revBatX, Y1, false, false);
+
+    let aY = (TUBE_Y_BOTTOM - 20 + Y1) / 2;
+    simCtx.fillStyle = 'white';
+    simCtx.beginPath(); simCtx.arc(P_RIGHT_X, aY, 18, 0, Math.PI*2); simCtx.fill(); simCtx.stroke();
+    simCtx.fillStyle = '#2d3748'; simCtx.font = 'bold 18px sans-serif'; simCtx.fillText('A', P_RIGHT_X, aY + 6);
+
+    atoms.forEach(a => {
+      if (a.flashTimer > 0) {
+        simCtx.fillStyle = '#d6bcfa'; simCtx.beginPath(); simCtx.arc(a.x, a.y, a.radius * 2.5, 0, Math.PI*2); simCtx.fill();
+      }
+      simCtx.fillStyle = '#cbd5e0'; simCtx.beginPath(); simCtx.arc(a.x, a.y, a.radius, 0, Math.PI*2); simCtx.fill();
+    });
+    
+    simCtx.strokeStyle = '#4a5568';
+    simCtx.lineWidth = 8;
+    simCtx.beginPath(); simCtx.moveTo(CATHODE_X, TUBE_Y_TOP + 20); simCtx.lineTo(CATHODE_X, TUBE_Y_BOTTOM - 20); simCtx.stroke();
+    simCtx.fillStyle = '#2d3748'; simCtx.font = 'bold 18px sans-serif'; simCtx.fillText('陰極C', CATHODE_X, TUBE_Y_TOP - 15);
+    
+    simCtx.beginPath(); simCtx.lineWidth = 2;
+    for(let i=0; i<6; i++) { simCtx.arc(CATHODE_X - 12, TUBE_Y_TOP + 50 + i*40, 10, Math.PI/2, Math.PI*1.5, true); }
+    simCtx.stroke();
+
+    simCtx.strokeStyle = '#4a5568'; simCtx.lineWidth = 3; simCtx.setLineDash([5, 5]);
+    simCtx.beginPath(); simCtx.moveTo(GRID_X, TUBE_Y_TOP + 20); simCtx.lineTo(GRID_X, TUBE_Y_BOTTOM - 20); simCtx.stroke();
+    simCtx.setLineDash([]);
+    simCtx.fillStyle = '#2d3748'; simCtx.fillText('電極G', GRID_X, TUBE_Y_TOP - 15);
+    
+    simCtx.fillStyle = '#4a5568';
+    simCtx.fillRect(ANODE_X - 6, TUBE_Y_TOP + 20, 12, TUBE_HEIGHT - 40);
+    simCtx.fillStyle = '#2d3748'; simCtx.fillText('陽極P', ANODE_X, TUBE_Y_TOP - 15);
+    
+    electrons.forEach(e => e.draw(simCtx));
+    if (showPhotons) photons.forEach(p => p.draw(simCtx));
+  }
+
+  function drawGraph() {
+    graphCtx.clearRect(0, 0, graphCanvas.width, graphCanvas.height);
+    const margin = {top: 30, right: 30, bottom: 45, left: 80};
+    const width = graphCanvas.width - margin.left - margin.right;
+    const height = graphCanvas.height - margin.top - margin.bottom;
+    
+    graphCtx.strokeStyle = '#e2e8f0';
+    graphCtx.lineWidth = 1.5;
+    graphCtx.setLineDash([6, 4]);
+    [4.9, 9.8, 14.7].forEach(v => {
+      let x = margin.left + (v / 15) * width;
+      graphCtx.beginPath(); graphCtx.moveTo(x, margin.top); graphCtx.lineTo(x, margin.top + height); graphCtx.stroke();
+      graphCtx.fillStyle = '#718096'; graphCtx.font = '12px sans-serif'; graphCtx.textAlign = 'center';
+      graphCtx.fillText(v.toFixed(1) + 'V', x, margin.top - 8);
+    });
+    graphCtx.setLineDash([]);
+    
+    graphCtx.strokeStyle = '#2d3748'; graphCtx.lineWidth = 2;
+    graphCtx.beginPath(); graphCtx.moveTo(margin.left, margin.top); graphCtx.lineTo(margin.left, margin.top + height);
+    graphCtx.lineTo(margin.left + width + 10, margin.top + height); graphCtx.stroke();
+    drawArrow(graphCtx, margin.left, margin.top + height, margin.left, margin.top - 10);
+    drawArrow(graphCtx, margin.left, margin.top + height, margin.left + width + 20, margin.top + height);
+
+    graphCtx.fillStyle = '#2d3748'; graphCtx.font = 'bold 14px sans-serif';
+    graphCtx.textAlign = 'center';
+    graphCtx.fillText('電圧 V [V]', margin.left + width / 2, margin.top + height + 35);
+    
+    // 縦軸のラベルをグラフに近づけ、単位を追加
+    graphCtx.save(); 
+    graphCtx.translate(margin.left - 40, margin.top + height / 2); 
+    graphCtx.rotate(-Math.PI / 2);
+    graphCtx.fillText('電流 [μA]', 0, 0); 
+    graphCtx.restore();
+    
+    graphCtx.font = '12px sans-serif';
+    for (let v = 0; v <= 15; v += 5) {
+      let x = margin.left + (v / 15) * width;
+      graphCtx.fillText(v, x, margin.top + height + 18);
+    }
+    
+    graphCtx.strokeStyle = '#e53e3e'; graphCtx.lineWidth = 3;
+    graphCtx.beginPath();
+    for (let v = 0; v <= 15; v += 0.05) {
+      let x = margin.left + (v / 15) * width;
+      let i = getTheoreticalCurrent(v);
+      let y = margin.top + height - (i / 10) * height; 
+      if (v === 0) graphCtx.moveTo(x, y); else graphCtx.lineTo(x, y);
+    }
+    graphCtx.stroke();
+    
+    let curX = margin.left + (voltageV / 15) * width;
+    let curI = getTheoreticalCurrent(voltageV);
+    let curY = margin.top + height - (curI / 10) * height;
+    graphCtx.strokeStyle = '#4a90e2'; graphCtx.lineWidth = 2; graphCtx.setLineDash([4, 4]);
+    graphCtx.beginPath(); graphCtx.moveTo(curX, margin.top + height); graphCtx.lineTo(curX, curY); graphCtx.stroke();
+    graphCtx.setLineDash([]);
+    graphCtx.fillStyle = '#4a90e2'; graphCtx.beginPath(); graphCtx.arc(curX, curY, 7, 0, Math.PI * 2); graphCtx.fill();
+  }
+
+  function drawArrow(ctx, fromX, fromY, toX, toY) {
+    const headlen = 8;
+    const dx = toX - fromX; const dy = toY - fromY;
+    const angle = Math.atan2(dy, dx);
+    ctx.beginPath(); ctx.moveTo(fromX, fromY); ctx.lineTo(toX, toY);
+    ctx.lineTo(toX - headlen * Math.cos(angle - Math.PI / 6), toY - headlen * Math.sin(angle - Math.PI / 6));
+    ctx.moveTo(toX, toY); ctx.lineTo(toX - headlen * Math.cos(angle + Math.PI / 6), toY - headlen * Math.sin(angle + Math.PI / 6));
+    ctx.stroke();
+  }
+
+  const knob = document.getElementById('voltageKnob');
+  const display = document.getElementById('voltageDisplay');
+  const btn = document.getElementById('autoPlayBtn');
+  const photonToggle = document.getElementById('showPhotonBtn');
+
+  let isDraggingKnob = false;
+  let isDraggingKnobInit = false;
+  let lastKnobAngle = 0;
+
+  function updateUI() {
+    display.innerText = voltageV.toFixed(1).padStart(4, ' ') + ' V';
+    let angle = -135 + (voltageV / 15) * 270;
+    knob.style.transform = `rotate(${angle}deg)`;
+  }
+
+  function handleKnobEvent(e) {
+    if (!isDraggingKnob) return;
+    e.preventDefault();
+    let rect = knob.getBoundingClientRect();
+    let centerX = rect.left + rect.width / 2;
+    let centerY = rect.top + rect.height / 2;
+    let clientX = e.clientX || (e.touches && e.touches[0].clientX);
+    let clientY = e.clientY || (e.touches && e.touches[0].clientY);
+    
+    let dx = clientX - centerX; 
+    let dy = clientY - centerY;
+    // 角度を計算 (-180度 〜 180度)
+    let rawAngle = Math.atan2(dy, dx) * (180 / Math.PI) + 90;
+    if (rawAngle > 180) rawAngle -= 360;
+
+    // クリック直後の初期角度を記録
+    if (isDraggingKnobInit) {
+      lastKnobAngle = rawAngle;
+      isDraggingKnobInit = false;
+      return;
+    }
+
+    // 前回の角度からの変化量(差分)を計算
+    let delta = rawAngle - lastKnobAngle;
+    if (delta > 180) delta -= 360;
+    if (delta < -180) delta += 360;
+
+    // 差分から電圧の変化量を計算
+    let vDelta = (delta / 270) * 15;
+    voltageV += vDelta;
+
+    // 0V 〜 15V の範囲を超えないように制限（行き止まりを作る）
+    if (voltageV > 15) voltageV = 15;
+    if (voltageV < 0) voltageV = 0;
+
+    lastKnobAngle = rawAngle;
+    updateUI();
+    
+    isAutoPlaying = false;
+    btn.innerText = '▶ オートプレイ開始';
+  }
+
+  knob.addEventListener('mousedown', (e) => { 
+    isDraggingKnob = true; 
+    isDraggingKnobInit = true;
+    handleKnobEvent(e); 
+  });
+  window.addEventListener('mousemove', handleKnobEvent);
+  window.addEventListener('mouseup', () => { isDraggingKnob = false; });
+  
+  knob.addEventListener('touchstart', (e) => { 
+    isDraggingKnob = true; 
+    isDraggingKnobInit = true;
+    handleKnobEvent(e); 
+  }, {passive: false});
+  window.addEventListener('touchmove', handleKnobEvent, {passive: false});
+  window.addEventListener('touchend', () => { isDraggingKnob = false; });
+
+  btn.addEventListener('click', () => {
+    isAutoPlaying = !isAutoPlaying;
+    btn.innerText = isAutoPlaying ? '■ オートプレイ停止' : '▶ オートプレイ開始';
+  });
+  photonToggle.addEventListener('change', (e) => { showPhotons = e.target.checked; });
+
+  updateUI();
+  requestAnimationFrame(update);
+</script>
+</body>
+</html>
